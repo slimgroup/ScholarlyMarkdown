@@ -1,0 +1,18 @@
+#!/bin/bash --norc
+set -u
+SCHOLMD_PATH="$GATechBundle/ScholarlyMarkdown"
+
+echo Fixing $SCHOLMD_PATH/configs/default_csl.yaml ...
+cat >$SCHOLMD_PATH/configs/default_csl.yaml <<EOF
+
+
+---
+csl: "$SCHOLMD_PATH/csl/geophysics.csl"
+---
+EOF
+diff $SCHOLMD_PATH/configs/default_csl.yaml.template $SCHOLMD_PATH/configs/default_csl.yaml
+echo ... done
+
+echo Fixing $SCHOLMD_PATH/configs/slim_js.yaml ...
+echo Nothing to do yet
+echo ... done

@@ -1,0 +1,10 @@
+---
+numbersections: on
+latex-after-packages-includes:
+    - \usepackage{icml2020}
+    - \usepackage{algorithm}
+    - \usepackage{algorithmic}
+    - \usepackage{fancyhdr}
+    - \pagenumbering{gobble}
+    - \bibliographystyle{icml2020}
+---

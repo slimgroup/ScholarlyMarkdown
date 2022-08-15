@@ -1,0 +1,200 @@
+% Some classes load the `subfigure` package which clashes with
+% our internal use of `subfig` for subfloats. We are most likely
+% not going to need the canned subfigure functionality anyways,
+% so we'll trick LaTeX into thinking it already loaded `subfigure`
+\makeatletter
+\newcommand{\dontusepackage}[2][]{%
+  \@namedef{ver@#2.sty}{9999/12/31}%
+  \@namedef{opt@#2.sty}{#1}}
+\makeatother
+\dontusepackage{subfigure}
+%
+\documentclass[$if(classoption)$$for(classoption)$$classoption$$sep$,$endfor$,$endif$paper,twocolumn,twoside]{geophysics}
+\usepackage{amssymb,amsmath,amsbsy,bm}
+\usepackage{fixltx2e} % provides \textsubscript
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+$if(euro)$
+  \usepackage{eurosym}
+$endif$
+% use microtype if available
+\IfFileExists{microtype.sty}{\usepackage{microtype}}{}
+\usepackage{natbib}
+\bibliographystyle{seglike}
+$if(listings)$
+\usepackage{listings}
+% Define slightly more reasonable Listings defaults
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    prebreak=\raisebox{0ex}[0ex][0ex]{\ensuremath{\hookleftarrow}},
+    frame=lines,
+    showtabs=false,
+    showspaces=false,
+    showstringspaces=false,
+    keywordstyle=\color[gray]{0.4}\bfseries,
+    commentstyle=\color[gray]{0.65}\itshape,
+    numbers=left,
+    captionpos=b,
+}
+$endif$
+$if(highlighting-macros)$
+$highlighting-macros$
+$endif$
+$if(verbatim-in-note)$
+\usepackage{fancyvrb}
+$endif$
+$if(tables)$
+\usepackage{longtable,booktabs}
+$endif$
+$if(graphics)$
+\usepackage{graphicx}
+% Redefine \includegraphics so that, unless explicit options are
+% given, the image width will not exceed the width of the page.
+% Images get their normal width if they fit onto the page, but
+% are scaled down if they would overflow the margins.
+\makeatletter
+\def\ScaleIfNeeded{%
+  \ifdim\Gin@nat@width>\linewidth
+    \linewidth
+  \else
+    \Gin@nat@width
+  \fi
+}
+\makeatother
+\let\Oldincludegraphics\includegraphics
+{
+ \catcode`\@=11\relax
+ \gdef\includegraphics{\@ifnextchar[{\Oldincludegraphics}{\Oldincludegraphics[width=\ScaleIfNeeded]}}
+}
+$endif$
+$if(floats)$
+\usepackage{caption}
+\usepackage{float}
+% Override extremely conservative LaTeX float placement rules
+% (might need to be removed for "manuscript" styles)
+\renewcommand{\topfraction}{0.85}	% max fraction of floats at top
+\renewcommand{\bottomfraction}{0.75}	% max fraction of floats at bottom
+\setcounter{topnumber}{2}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{4}
+\setcounter{dbltopnumber}{2}    % for 2-column pages
+\renewcommand{\dbltopfraction}{0.85}	% fit big float above 2-col. text
+\renewcommand{\textfraction}{0.10}	% allow minimal text w. figs
+\renewcommand{\floatpagefraction}{0.85}	% require fuller float pages
+\renewcommand{\dblfloatpagefraction}{0.85}	% require fuller float pages
+% Encourage floats to be placed in the vacinity of where it is defined
+% (in some manuscript styles where figures are collected at the end, the 'h'
+% option might need to be removed by a separate '\floatplacement' call in the
+% 'header-includes' metadata field)
+\floatplacement{figure}{tbp}
+\floatplacement{scholmdAlgorithm}{tbp}
+\floatplacement{table}{tbp}
+$endif$
+$if(subfigures)$
+\usepackage{subfig}
+\captionsetup[subfloat]{margin=1em}
+$endif$
+$if(algorithms)$
+\usepackage{algorithm} % <- from the `algorithms` package
+% Rename the `algorithm` float environment so that it doesn't
+% conflict with the one provided by `algorithm2e`, which is
+% also called `algorithm`. The following environments are renamed:
+%       algorithm -> scholmdAlgorithm
+%       algorithm* -> scholmdAlgorithm*
+%       listofalgorithms -> scholmdListofalgorithms
+\let\scholmdAlgorithm\algorithm
+\let\endscholmdAlgorithm\endalgorithm
+\let\algorithm\relax \let\endalgorithm\relax
+\let\scholmdListofalgorithms\listofalgorithms
+\let\listofalgorithms\relax
+{
+ \catcode`\*=11\relax
+ \global\let\scholmdAlgorithm*\algorithm*
+ \global\let\endscholmdAlgorithm*\endalgorithm*
+ \global\let\algorithm*\relax 
+ \global\let\endalgorithm*\relax
+}
+$endif$
+
+$if(runninghead)$
+\righthead{$runninghead$}
+$endif$
+
+\usepackage[unicode=true]{hyperref}
+\hypersetup{breaklinks=true,
+            bookmarks=true,
+            pdfauthor={$author-meta$},
+            pdftitle={$title-meta$},
+            colorlinks=true,
+            citecolor=$if(citecolor)$$citecolor$$else$black$endif$,
+            urlcolor=$if(urlcolor)$$urlcolor$$else$blue$endif$,
+            linkcolor=$if(linkcolor)$$linkcolor$$else$black$endif$,
+            pdfborder={0 0 0}}
+\urlstyle{same}  % don't use monospace font for urls
+$if(links-as-notes)$
+% Make links footnotes instead of hotlinks:
+\renewcommand{\href}[2]{#2\footnote{\url{#1}}}
+$endif$
+$if(strikeout)$
+\usepackage[normalem]{ulem}
+% avoid problems with \sout in headers with hyperref:
+\pdfstringdefDisableCommands{\renewcommand{\sout}{}}
+$endif$
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+$if(verbatim-in-note)$
+\VerbatimFootnotes % allows verbatim text in footnotes
+$endif$
+$if(math-macros)$
+
+% Math definitons
+$math-macros$
+% End of math definitions
+
+$endif$
+
+$if(title)$
+\title{$title$}
+$endif$
+$if(subtitle)$
+\subtitle{$subtitle$}
+$endif$
+$if(author)$
+\author{$author$}
+$endif$
+\date{$date$}
+$for(header-includes)$
+$header-includes$
+$endfor$
+
+\begin{document}
+$if(title)$
+\maketitle
+$endif$
+
+$if(abstract)$
+\begin{abstract}
+$abstract$
+\end{abstract}
+$endif$
+
+$for(include-before)$
+$include-before$
+
+$endfor$
+
+$body$
+
+$if(natbib)$
+$if(biblio-files)$
+\bibliography{$biblio-files$}
+$endif$
+$endif$
+
+$for(include-after)$
+$include-after$
+
+$endfor$
+\end{document}

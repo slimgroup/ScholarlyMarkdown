@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# Edit the following to suit your computer
+PATH_TO_SCHOLPANDOC=$GATechBundle/bin
+CSL="$GATechBundle/share/ScholarlyMarkdown/csl/geophysics.csl"
+
+# This part don't need to be changed.
+PATH=$PATH_TO_SCHOLPANDOC:$PATH
+DOCUMENT_PATH=${MARKED_ORIGIN:-$(dirname ${MARKED_PATH})}
+ARGS="--to=html5_bodyOnly --citeproc --no-mathjax-cdn --csl=$CSL"
+cd "$DOCUMENT_PATH" && scholdoc $ARGS 2>&1

@@ -1,0 +1,19 @@
+
+---
+geometry:
+    - margin=1.0in
+    - bottom=1.5in
+biblio-style: unsrtnat
+natbib-options:
+    - square
+    - numbers
+    - sort&compress
+numbersections: on
+latex-after-packages-includes:
+    - \usepackage[preprint]{neurips_2019}
+    - \usepackage{url}
+    - \usepackage{booktabs}
+    - \usepackage{amsfonts}
+    - \usepackage{nicefrac}
+    - \usepackage{microtype}
+---

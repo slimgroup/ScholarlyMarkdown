@@ -1,0 +1,369 @@
+#!/bin/bash --norc
+set -u
+
+# check if enough arguments
+if (( $# < 1))
+then
+    echo Use:
+    echo '    ' $(basename $0) path2file1.md [ path2file2.md ...]
+    exit
+fi
+# check if files exist and has .md suffix
+for f in $@
+do
+    if [ ! -f $f ]
+    then
+        echo FATAL ERROR: $f does not exist
+        exit 1
+    fi
+    df=$(dirname $f)
+    bf=$(basename $f .md)
+    if [ ! -f $df/$bf.md ]
+    then
+        echo FATAL SURPRISE: $f is not .md file?
+         exit 1
+    fi
+done
+
+# killing the script
+echo !!! USE Ctrl-C AT ANY TIME TO QUIT SELECTION !!!; echo
+
+# set URLs/paths
+# This SCHOLMD_PATH is the distribution path, should be the same on all systems
+export SCHOLMD_PATH="$GATechBundle/ScholarlyMarkdown"
+TEMPLATE_PATH="$SCHOLMD_PATH/templates"
+CONFIG_PATH="$SCHOLMD_PATH/configs"
+# Use the following hardlinks to web resources
+RES="https://slimgroup.slim.gatech.edu/ScholMD"
+HTML_CSS="$RES/standalone/slimweb-scholmd-standalone-v0.1-latest.min.css"
+HTML_SKELETON_CSS="$RES/core/slimweb-scholmd-core-v0.1-latest.css"
+HTML_SCRIPT="$RES/js/slimweb-scholmd-scripts.js"
+LOGOPDF="$RES/icons/PDF_file_96.png"
+LOGOMD="$RES/icons/SchMD_file_96.png"
+# Use SLIM self-hosted mathjax (for compatibility with SSL)
+MATHJAX_URL="https://slimgroup.slim.gatech.edu/MathJax/MathJax.js?config=TeX-AMS_HTML-full"
+
+# check for $CONFIG_PATH/default_csl.yaml
+if [ ! -f $CONFIG_PATH/default_csl.yaml ]
+then
+    echo FATAL ERROR: $CONFIG_PATH/default_csl.yaml is missing
+    echo ... run fix_ScholPandocConverter to generate the default one
+    echo
+    exit 1
+fi
+
+# set menus
+declare -a selections
+menuOutputType=("Document (PDF, LaTeX, etc…)" "HTML webpage")
+menuDocument=("SEG extended abstract" "EAGE extended abstract" "Geophysics manuscript style" "Geophysics report style" "Geophysics paper style" "Generic technical article (plain LaTeX style)" "Plain document" "NeurIPS preprint style" "ICML manuscript style")
+menuHTML=("Official SLIM paper/report webpage" "Generic notes/report webpage" "Generic notes/report webpage (with CriticMarkup)" "For inclusion in SLIM research pages" "Empty style (for embedding within existing website)")
+menuDocumentFormat=("PDF" "LaTeX source" "Word document")
+menuDocumentFormatNoWord=("PDF" "LaTeX source")
+
+#########################
+# Select document options
+PS3='What do you need to produce (select option)? '
+select OutputType in "${menuOutputType[@]}"
+do
+    case $OutputType in
+        ${menuOutputType[0]}) # Documents
+            echo ... You selected: ${menuOutputType[0]}; echo
+            PS3="What kind of document (select option)? "
+            select Document in "${menuDocument[@]}"
+            do
+                #echo ... You selected $Document
+                case $Document in
+                    "${menuDocument[0]}") ;&
+                    "${menuDocument[1]}") ;&
+                    "${menuDocument[2]}") ;&
+                    "${menuDocument[3]}") ;&
+                    "${menuDocument[4]}") ;&
+                    "${menuDocument[5]}") ;&
+                    "${menuDocument[7]}") ;&
+                    "${menuDocument[8]}")
+                        echo ... You selected: $Document; echo
+                        selections[0]=$Document
+                        PS3="What format (select option)? "
+                        select DocumentFormat in "${menuDocumentFormatNoWord[@]}"
+                        do
+                            echo ... You selected $DocumentFormat; echo
+                            selections[1]=$DocumentFormat
+                            break
+                        done
+                        break;;
+                    "${menuDocument[6]}")
+                        echo ... You selected: $Document; echo
+                        selections[0]=$Document
+                        PS3="What format (select option)? "
+                        select DocumentFormat in "${menuDocumentFormat[@]}"
+                        do
+                            echo ... You selected $DocumentFormat; echo
+                            selections[1]=$DocumentFormat
+                            break
+                        done
+                        break;;
+                    *)
+                        echo "invalid option";;
+                esac
+            done
+            break;;
+        ${menuOutputType[1]}) # HTML
+            echo ... You selected: ${menuOutputType[1]}; echo
+            PS3="What kind of webpage (select option)? "
+            select htmlType in "${menuHTML[@]}"
+            do
+                echo ... You selected: $htmlType; echo
+                selections[0]=$htmlType
+                break
+            done
+            selections[1]="HTML"
+            break;;
+        *)
+            echo "invalid option";;
+    esac
+done
+
+###################
+# Processing script
+#echo Processing $@ to \"${selections[1]}\" as \"${selections[0]}\" ...
+
+# All recording scripts will have this postfix
+script_postfix="_convertScholmd.bash"
+# placeholder variable for additional configuration YAML files
+configFiles=""
+# Additional format toggles
+useLatexMK=FALSE
+isOfficialSLIMWeb=FALSE
+useCriticMarkupPreprocessorForHTML=FALSE
+
+# function for reporting errors in a system dialogue
+function reportErr {
+    if [ $haveFailed = FALSE ]; then    # otherwise you end up with multiple error dialogues
+        printf "%s:\n\t %s\n\n" "$1" "$2"
+    fi
+}
+
+# environment flag to see if any part of the execution chain failed (intended to stop further execution)
+export haveFailed=FALSE
+
+# function used to wrap "eval" in a check to see if previous execution have failed, and don't try to execute if that's the case
+function evalIfSafe {
+    if [ $haveFailed = FALSE ]; then
+        eval $1
+    fi
+}
+
+## If Applescript produced errors, don't run shell script
+#if [ "$1" == "Error in Menu Selection" ] || [ "$1" = "No File" ]; then        # Only run if user didn't cancel
+    #echo "Error in Apple Script: $1"
+    #exit 0
+#fi
+
+######## Parses the options from the AppleScript ########
+
+# Set formatting of the options according to option picked in AppleScript
+case "${selections[0]}" in
+    "SEG extended abstract")
+        options="--template=\"$TEMPLATE_PATH/SEGabstractTemplate.latex\""
+        ;;
+    "EAGE extended abstract")
+        options="--template=\"$TEMPLATE_PATH/EAGEabstractTemplate.latex\""
+        ;;
+    "Geophysics manuscript style")
+        options="--template=\"$TEMPLATE_PATH/SEGmanuscriptTemplate.latex\""
+        ;;
+    "Geophysics report style")
+        options="--template=\"$TEMPLATE_PATH/SEGreportTemplate.latex\""
+        ;;
+    "Geophysics paper style")
+        options="--template=\"$TEMPLATE_PATH/SEGpaperTemplate.latex\""
+        ;;
+    "Generic technical article (plain LaTeX style)")
+        options=""
+        configFiles+="\"$CONFIG_PATH/techreport_latex.yaml\""
+        ;;
+    "Plain document")
+        options=""
+        configFiles+="\"$CONFIG_PATH/plain_latex.yaml\""
+        ;;
+    "NeurIPS preprint style")
+        options=""
+        configFiles+="\"$CONFIG_PATH/neurips_latex.yaml\""
+        ;;
+    "ICML manuscript style")
+        options="--template=\"$TEMPLATE_PATH/ICMLTemplate.latex\""
+        ;;
+    "Official SLIM paper/report webpage")
+        options="--css='$HTML_CSS' --mathjax='$MATHJAX_URL'"
+        configFiles+="\"$CONFIG_PATH/slim_js.yaml\""
+        isOfficialSLIMWeb=TRUE
+        ;;
+    "Generic notes/report webpage")
+        options="--css='$HTML_CSS' --mathjax='$MATHJAX_URL'"
+        configFiles+="\"$CONFIG_PATH/slim_js.yaml\""
+        ;;
+    "Generic notes/report webpage (with CriticMarkup)")
+        options="--css='$HTML_CSS' --mathjax='$MATHJAX_URL'"
+        useCriticMarkupPreprocessorForHTML=TRUE
+        ;;
+    "For inclusion in SLIM research pages")
+        options="--css='$HTML_SKELETON_CSS' --mathjax='$MATHJAX_URL' --table-of-contents"
+        ;;
+    "Empty style (for embedding within existing website)")
+        options="--css='$HTML_SKELETON_CSS' --mathjax='$MATHJAX_URL'"
+        ;;
+    *)
+        reportErr "FATAL ERROR:" "error picking document options"
+        exit 0
+esac
+#echo Options: $options
+
+# Set filetype according to option picked in AppleScript
+case "${selections[1]}" in
+    "PDF")
+        fileEnd=".tex"
+        # Only use latexmk to produce pdf files
+        options+=" "
+        options+="--to=latex --natbib"
+        useLatexMK=TRUE
+        ;;
+    "LaTeX source")
+        fileEnd=".tex"
+        options+=" "
+        options+="--to=latex --natbib"
+        ;;
+    "Word document")
+        fileEnd=".docx"
+        options+=" "
+        options+="--to=docx --citeproc"
+        configFiles+=" "
+        configFiles+="\"$CONFIG_PATH/default_csl.yaml\""
+        # Emit warning that Word feature is not finished
+        reportErr "WARINING" "Word format output is not finished yet. You can still attempt the conversion, but features specific to ScholarlyMarkdown (figures, cross-references, etc.) will not appear in the document. Furthermore, LaTeX macro definitions are not supported yet, so you may have to manually expand all your math macros first."
+        ;;
+    "HTML")
+        fileEnd=".html"
+        options+=" "
+        options+="--to=html --default-image-extension=png --citeproc"
+        configFiles+=" "
+        configFiles+="\"$CONFIG_PATH/default_csl.yaml\""
+        ;;
+    *)
+        reportErr "FATAL ERROR" "error picking document file extension"
+        exit 0
+esac
+#echo File suffix: $fileEnd
+
+# ########## Display a "compiling…" message ########
+wait_message="Once the process is successful, your result will be placed in the same folder as input file. Also, this conversion process is recorded into a shell script called \"[filename]$script_postfix\". Running this script will regenerate your chosen document."
+
+format_reminder_message=" ! "
+if [ $fileEnd = ".html" ]; then
+    format_reminder_message+="(Remember to provide .png versions of all your image files for the webpage.)"
+elif [ $fileEnd = ".tex" ]; then
+    format_reminder_message+="(Please remember that all your images should ideally be in PDF format.)"
+fi
+
+## The dialogue spawn needed to be put into the background with & otherwise it blocke the script
+printf "%s:\n\t%s\n\n" "Conversion info:" "$wait_message$format_reminder_message"
+
+########## Start conversion process ########
+
+mydir=$(pwd)
+for arg in "$@"            #Convert each file using scholdoc and display progress
+do
+    dir=$(dirname $arg)
+    inputFile=$(basename $arg)
+    outputFileName=$(basename $arg .md)
+    echo % % % % % % % % % %
+    echo "Converting $inputFile ..."
+    #echo $dir $inputFile $outputFileName
+    cd "$dir"            #Need to be in file's directory to use some features
+
+    # All actions will be saved to a script with this name
+    script_name="$outputFileName$script_postfix"
+
+    # check to see if there's a user-specificed config file we shoule use
+    # this would have the same name as the markdown file, but with a .yaml extension
+    userConfigFile=""
+    if [ -f "${outputFileName}.yaml" ]; then
+        userConfigFile="\"${outputFileName}.yaml\""
+    fi
+
+    exec_string=""        #Begin to build up final execution string
+
+    if [ $useCriticMarkupPreprocessorForHTML = TRUE ]; then
+        ## Use CriticMarkupPreprocessor to process source MD file into a new file and convert that instead
+        trap 'reportErr "FATAL ERROR" "CriticMarkup preprocessor failed to run" && export haveFailed=TRUE' ERR
+            inputFile_criticProcessed="${outputFileName}_criticMarkupProcessed.md"
+            criticprocess_string="<\"$inputFile\" critic.py >\"$inputFile_criticProcessed\""
+            evalIfSafe "$criticprocess_string"
+            exec_string+=$criticprocess_string
+            exec_string+=" && "
+            inputFile=$inputFile_criticProcessed
+            trap '' ERR
+    fi
+
+    # here's the ACTUAL call to Scholdoc
+    trap 'reportErr "FATAL ERROR" "scholdoc failed to run" && export haveFailed=TRUE' ERR
+        mdconvert_string="scholdoc $options $userConfigFile \"$inputFile\" $configFiles -o \"$outputFileName$fileEnd\" 2>&1"
+        evalIfSafe "$mdconvert_string"
+        exec_string+=$mdconvert_string
+    trap '' ERR
+
+    if [ $isOfficialSLIMWeb = TRUE ]; then                ## Add links to pdf and markdown file
+        append_logos_string="sed -i'.sedbak' -e \"s|<h1 class=\\\"scholmd-title\\\">|&<p class=\\\"pull-right\\\"><a href=\\\"$outputFileName.pdf\\\"><img src=\\\"$LOGOPDF\\\" alt=\\\"PDF Version\\\" width=48px height=48px /></a><a href=\\\"$inputFile\\\"><img src=\\\"$LOGOMD\\\" alt=\\\"Markdown Version\\\" width=48px height=48px /></a></p>|\" \"$outputFileName$fileEnd\" && rm \"$outputFileName${fileEnd}.sedbak\""
+        evalIfSafe "$append_logos_string"
+        exec_string+=" && $append_logos_string"
+    fi
+
+    if [ $useLatexMK = TRUE ]; then                    ## Use latexmk for PDF output
+    echo "Using latexmk"
+        
+        # latexmk building procedure:
+        #    1) remove old pdf
+        #    2) set TEXINPUTS and BSTINPUTS to the distribution directory, so we can easily include journal style files
+        #    3) run latexmk in batch mode, so it would not ask for user interaction
+        
+        latexmk_build_dir="${outputFileName}_latexmk_temp"
+        latexmk_string="rm -f \"$outputFileName.pdf\" ; TEXINPUTS=\".:$SCHOLMD_PATH/texinputs//:\" BSTINPUTS=\".:$SCHOLMD_PATH/texinputs//:\" latexmk -pdf -halt-on-error -interaction=batchmode -recorder -outdir=\"$latexmk_build_dir\" \"$outputFileName$fileEnd\""
+        evalIfSafe "$latexmk_string"
+        exec_string+=" && $latexmk_string"
+        
+        fileEnd=".pdf" # finished rendering, change target file extension to pdf
+        
+        # Sometimes latexmk can't produce output due to compilation errors. We catch this case by making sure the final pdf exists
+        # If the log file exists, point user to the log file
+        if [ ! -f "$latexmk_build_dir/$outputFileName$fileEnd" ]; then
+            reportErr "FATAL ERROR" "latexmk failed to run properly; cannot produce PDF output. Please check the log file \\\"$latexmk_build_dir/$outputFileName.log\\\""
+            export haveFailed=TRUE
+        fi
+        
+        # Copy finished PDF to current dir
+        mv_file_string="mv -f \"$latexmk_build_dir/$outputFileName$fileEnd\" . "
+        evalIfSafe "$mv_file_string"
+    fi
+
+    trap 'reportErr "FATAL ERROR" "file was not output correctly and is missing" && export haveFailed=TRUE' ERR
+    ls -lh "$outputFileName$fileEnd"
+    trap '' ERR
+
+    echo "... converted $inputFile to $outputFileName$fileEnd in $dir"
+    echo % % % % % % % % % %
+
+    cd $mydir
+done
+
+# ########## Write conversion processto a shell script ########
+
+trap 'reportErr "ERROR" "tried to record actions to a Bash script, but failed" && exit 0' ERR
+    echo "#!/bin/bash" >"$dir/$script_name"
+    echo '' >>"$dir/$script_name"
+    echo "PATH=$PATH" >>"$dir/$script_name"
+    echo $exec_string >>"$dir/script_name"
+    chmod 755 "$dir/script_name"
+trap '' ERR
+
+echo ... done
+
+# prepare output script
