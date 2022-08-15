@@ -30,7 +30,6 @@ echo !!! USE Ctrl-C AT ANY TIME TO QUIT SELECTION !!!; echo
 
 # set URLs/paths
 # This SCHOLMD_PATH is the distribution path, should be the same on all systems
-export SCHOLMD_PATH="$GATechBundle/ScholarlyMarkdown"
 TEMPLATE_PATH="$SCHOLMD_PATH/templates"
 CONFIG_PATH="$SCHOLMD_PATH/configs"
 # Use the following hardlinks to web resources
